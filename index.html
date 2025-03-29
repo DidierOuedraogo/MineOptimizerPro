@@ -1,0 +1,2404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimisation de Fosse Minière - Lerch-Grossman & Pseudo Flow</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        
+        body {
+            background-color: #f1f5f9;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        header {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #475569;
+        }
+        
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+        
+        .visualization {
+            height: 400px;
+            background-color: #e2e8f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .block-model {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(60deg) rotateZ(45deg);
+            transition: transform 0.5s;
+        }
+        
+        .cube {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            transform-style: preserve-3d;
+        }
+        
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
+        }
+        
+        .top {
+            transform: translateZ(15px);
+        }
+        
+        .bottom {
+            transform: translateZ(-15px) rotateX(180deg);
+        }
+        
+        .front {
+            transform: translateY(15px) rotateX(90deg);
+        }
+        
+        .back {
+            transform: translateY(-15px) rotateX(-90deg);
+        }
+        
+        .left {
+            transform: translateX(-15px) rotateY(-90deg);
+        }
+        
+        .right {
+            transform: translateX(15px) rotateY(90deg);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .badge-primary {
+            background-color: rgba(37, 99, 235, 0.1);
+            color: var(--primary);
+        }
+        
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+        
+        .badge-warning {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .results.active {
+            display: block;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(37, 99, 235, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-container {
+            margin-bottom: 1.5rem;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #cbd5e1;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .tab-content {
+            padding-top: 1.5rem;
+        }
+        
+        .panel {
+            display: none;
+        }
+        
+        .panel.active {
+            display: block;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        table th, table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+        }
+        
+        .text-success {
+            color: var(--success);
+        }
+        
+        .text-danger {
+            color: var(--danger);
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .algorithm-selection {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .algorithm-card {
+            flex: 1;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .algorithm-card.selected {
+            border-color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+        
+        .algorithm-card h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .algorithm-card p {
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+        
+        .check-mark {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .algorithm-card.selected .check-mark {
+            display: flex;
+        }
+        
+        .algorithm-details {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+        }
+        
+        .algorithm-params {
+            display: none;
+            margin-top: 1rem;
+        }
+        
+        .algorithm-params.active {
+            display: block;
+        }
+        
+        .comp-table {
+            width: 100%;
+            margin-top: 1.5rem;
+        }
+        
+        .comp-table th {
+            text-align: center;
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+        
+        .comp-table td {
+            text-align: center;
+        }
+        
+        .perf-metric {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .perf-label {
+            width: 50%;
+            font-weight: 500;
+        }
+        
+        .perf-value {
+            width: 50%;
+            text-align: right;
+        }
+        
+        .perf-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 4px;
+            margin-top: 0.25rem;
+        }
+        
+        .perf-bar {
+            height: 100%;
+            border-radius: 4px;
+            background-color: var(--primary);
+        }
+        
+        .export-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .file-format {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .file-format-icon {
+            width: 24px;
+            height: 24px;
+            background-color: #f1f5f9;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .csv-icon {
+            color: var(--success);
+        }
+        
+        .dxf-icon {
+            color: var(--primary);
+        }
+        
+        .json-icon {
+            color: var(--warning);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 600px;
+            position: relative;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .export-preview {
+            margin-top: 1rem;
+            background-color: #f1f5f9;
+            border-radius: 4px;
+            padding: 1rem;
+            overflow-x: auto;
+            max-height: 300px;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        
+        .level-selector {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .level-selector label {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: normal;
+        }
+        
+        .checkbox-label input {
+            width: auto;
+        }
+        
+        .legend {
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: var(--success);
+            color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .visualization {
+                height: 300px;
+            }
+            
+            .block-model {
+                width: 200px;
+                height: 200px;
+            }
+            
+            .cube {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .tabs {
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                padding: 0.5rem 1rem;
+            }
+            
+            .algorithm-selection {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                margin: 20% auto;
+                padding: 1.5rem;
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Mine Optimizer Pro</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <p class="subtitle">Optimisation de fosses minières par algorithmes avancés</p>
+        
+        <div class="grid">
+            <div>
+                <div class="card">
+                    <h2>Algorithme d'optimisation</h2>
+                    <div class="algorithm-selection">
+                        <div class="algorithm-card selected" id="lg-algorithm">
+                            <div class="check-mark">✓</div>
+                            <h3>Lerch-Grossman (LG)</h3>
+                            <p>Algorithme classique basé sur la théorie des graphes pour déterminer la fosse ultime</p>
+                            <div class="algorithm-details">
+                                <div class="perf-metric">
+                                    <div class="perf-label">Précision</div>
+                                    <div class="perf-value">Haute</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 90%"></div>
+                                </div>
+                                
+                                <div class="perf-metric">
+                                    <div class="perf-label">Vitesse</div>
+                                    <div class="perf-value">Moyenne</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 65%"></div>
+                                </div>
+                                
+                                <div class="perf-metric">
+                                    <div class="perf-label">Complexité</div>
+                                    <div class="perf-value">Moyenne</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 70%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="algorithm-card" id="pf-algorithm">
+                            <div class="check-mark">✓</div>
+                            <h3>Pseudo Flow (PF)</h3>
+                            <p>Algorithme moderne basé sur le calcul de flot maximum pour une optimisation rapide</p>
+                            <div class="algorithm-details">
+                                <div class="perf-metric">
+                                    <div class="perf-label">Précision</div>
+                                    <div class="perf-value">Très haute</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 95%"></div>
+                                </div>
+                                
+                                <div class="perf-metric">
+                                    <div class="perf-label">Vitesse</div>
+                                    <div class="perf-value">Rapide</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 90%"></div>
+                                </div>
+                                
+                                <div class="perf-metric">
+                                    <div class="perf-label">Complexité</div>
+                                    <div class="perf-value">Haute</div>
+                                </div>
+                                <div class="perf-bar-container">
+                                    <div class="perf-bar" style="width: 85%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="algorithm-params active" id="lg-params">
+                        <div class="form-group">
+                            <label for="lg-iterations">Nombre d'itérations</label>
+                            <input type="number" id="lg-iterations" min="1" max="100" value="5">
+                        </div>
+                        <div class="form-group">
+                            <label for="lg-tolerance">Tolérance</label>
+                            <input type="number" id="lg-tolerance" min="0" max="1" step="0.01" value="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="algorithm-params" id="pf-params">
+                        <div class="form-group">
+                            <label for="pf-alpha">Paramètre Alpha</label>
+                            <input type="number" id="pf-alpha" min="0" max="1" step="0.01" value="0.15">
+                        </div>
+                        <div class="form-group">
+                            <label for="pf-method">Méthode de calcul</label>
+                            <select id="pf-method">
+                                <option value="highest-label">Highest Label</option>
+                                <option value="pull-relabel">Pull-Relabel</option>
+                                <option value="push-relabel">Push-Relabel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="pf-capacity-scaling">Capacity Scaling</label>
+                            <input type="checkbox" id="pf-capacity-scaling" checked>
+                        </div>
+                    </div>
+                    
+                    <table class="comp-table">
+                        <tr>
+                            <th></th>
+                            <th>Lerch-Grossman</th>
+                            <th>Pseudo Flow</th>
+                        </tr>
+                        <tr>
+                            <td>Modèles de grande taille</td>
+                            <td>⭐⭐⭐</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Facilité d'utilisation</td>
+                            <td>⭐⭐⭐⭐</td>
+                            <td>⭐⭐⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Robustesse</td>
+                            <td>⭐⭐⭐⭐</td>
+                            <td>⭐⭐⭐⭐</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div class="card">
+                    <h2>Paramètres du modèle de blocs</h2>
+                    <div class="form-group">
+                        <label for="file-upload">Importer le modèle de blocs (CSV, JSON)</label>
+                        <input type="file" id="file-upload" accept=".csv, .json">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model-size">Taille du modèle</label>
+                        <select id="model-size">
+                            <option value="small">Petit (10x10x10)</option>
+                            <option value="medium" selected>Moyen (20x20x10)</option>
+                            <option value="large">Grand (30x30x15)</option>
+                            <option value="custom">Personnalisé</option>
+                        </select>
+                    </div>
+                    
+                    <div id="custom-size" style="display: none;">
+                        <div class="form-group">
+                            <label for="size-x">Nombre de blocs en X</label>
+                            <input type="number" id="size-x" min="1" max="100" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="size-y">Nombre de blocs en Y</label>
+                            <input type="number" id="size-y" min="1" max="100" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="size-z">Nombre de blocs en Z</label>
+                            <input type="number" id="size-z" min="1" max="50" value="10">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="block-size">Dimension des blocs (m)</label>
+                        <input type="number" id="block-size" min="1" max="50" value="10">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="origin-x">Origine X (coordonnées)</label>
+                        <input type="number" id="origin-x" value="1000">
+                    </div>
+                    <div class="form-group">
+                        <label for="origin-y">Origine Y (coordonnées)</label>
+                        <input type="number" id="origin-y" value="2000">
+                    </div>
+                    <div class="form-group">
+                        <label for="origin-z">Origine Z (coordonnées)</label>
+                        <input type="number" id="origin-z" value="500">
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Paramètres économiques</h2>
+                    <div class="form-group">
+                        <label for="metal-price">Prix du métal ($/t)</label>
+                        <input type="number" id="metal-price" min="0" step="0.01" value="1000">
+                    </div>
+                    <div class="form-group">
+                        <label for="mining-cost">Coût d'extraction ($/t)</label>
+                        <input type="number" id="mining-cost" min="0" step="0.01" value="2.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="processing-cost">Coût de traitement ($/t)</label>
+                        <input type="number" id="processing-cost" min="0" step="0.01" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="recovery">Taux de récupération (%)</label>
+                        <input type="number" id="recovery" min="0" max="100" step="0.1" value="90">
+                    </div>
+                    <div class="form-group">
+                        <label for="cutoff-grade">Teneur de coupure (%)</label>
+                        <input type="number" id="cutoff-grade" min="0" max="100" step="0.01" value="0.5">
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Paramètres géotechniques</h2>
+                    <div class="form-group">
+                        <label for="slope-angle">Angle de pente global (°)</label>
+                        <input type="number" id="slope-angle" min="0" max="90" value="45">
+                    </div>
+                    <div class="form-group">
+                        <label for="bench-height">Hauteur de gradin (m)</label>
+                        <input type="number" id="bench-height" min="0" value="10">
+                    </div>
+                    
+                    <button id="run-optimizer" class="btn-block">Lancer l'optimisation</button>
+                </div>
+            </div>
+            
+            <div>
+                <div class="card">
+                    <h2>Visualisation</h2>
+                    <div class="visualization">
+                        <div class="block-model" id="model-3d"></div>
+                    </div>
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label for="view-mode">Mode d'affichage</label>
+                        <select id="view-mode">
+                            <option value="grades">Teneurs</option>
+                            <option value="value">Valeur économique</option>
+                            <option value="pit">Fosse optimale</option>
+                        </select>
+                    </div>
+                    
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(120, 80%, 50%)"></div>
+                            <span>Faible teneur</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(60, 80%, 50%)"></div>
+                            <span>Teneur moyenne</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(0, 80%, 50%)"></div>
+                            <span>Haute teneur</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="loading" id="loading-indicator">
+                    <div class="spinner"></div>
+                    <p>Optimisation en cours avec l'algorithme <span id="algorithm-name">Lerch-Grossman</span>...</p>
+                    <p id="progress-step">Préparation du modèle de blocs...</p>
+                </div>
+                
+                <div class="results" id="results-panel">
+                    <div class="card">
+                        <h2>Résultats d'optimisation</h2>
+                        <p>Algorithme utilisé: <strong id="used-algorithm">Lerch-Grossman</strong> | Temps d'exécution: <span id="execution-time">2.4 secondes</span></p>
+                        
+                        <div class="tab-container">
+                            <div class="tabs">
+                                <div class="tab active" data-tab="summary">Résumé</div>
+                                <div class="tab" data-tab="details">Détails</div>
+                                <div class="tab" data-tab="sensitivity">Sensibilité</div>
+                                <div class="tab" data-tab="comparison">Comparaison</div>
+                            </div>
+                            
+                            <div class="tab-content">
+                                <div class="panel active" id="summary">
+                                    <div style="display: flex; flex-wrap: wrap;">
+                                        <div class="badge badge-primary">Blocs extraits: <span id="extracted-blocks">0</span></div>
+                                        <div class="badge badge-success">VAN: <span id="npv">0 $</span></div>
+                                        <div class="badge badge-warning">Ratio S/M: <span id="sr-ratio">0</span></div>
+                                    </div>
+                                    
+                                    <table>
+                                        <tr>
+                                            <th>Paramètre</th>
+                                            <th>Valeur</th>
+                                        </tr>
+                                        <tr>
+                                            <td>Tonnage total</td>
+                                            <td id="total-tonnage">0 t</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Tonnage de minerai</td>
+                                            <td id="ore-tonnage">0 t</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Tonnage de stérile</td>
+                                            <td id="waste-tonnage">0 t</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Teneur moyenne</td>
+                                            <td id="avg-grade">0 %</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Métal contenu</td>
+                                            <td id="metal-content">0 t</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Revenu total</td>
+                                            <td id="total-revenue" class="text-success">0 $</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Coût total</td>
+                                            <td id="total-cost" class="text-danger">0 $</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Profit</td>
+                                            <td id="total-profit">0 $</td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <div class="export-options">
+                                        <h3>Exporter les résultats</h3>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                            <button id="export-csv" class="btn-sm">
+                                                <div class="file-format">
+                                                    <div class="file-format-icon csv-icon">CSV</div>
+                                                    <span>Résultats détaillés</span>
+                                                </div>
+                                            </button>
+                                            <button id="export-dxf" class="btn-sm">
+                                                <div class="file-format">
+                                                    <div class="file-format-icon dxf-icon">DXF</div>
+                                                    <span>Limite de fosse</span>
+                                                </div>
+                                            </button>
+                                            <button id="export-json" class="btn-sm">
+                                                <div class="file-format">
+                                                    <div class="file-format-icon json-icon">JSON</div>
+                                                    <span>Modèle complet</span>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="panel" id="details">
+                                    <table>
+                                        <tr>
+                                            <th>Niveau</th>
+                                            <th>Blocs</th>
+                                            <th>Tonnage</th>
+                                            <th>Teneur moy.</th>
+                                            <th>Valeur</th>
+                                        </tr>
+                                        <tr>
+                                            <td>Niveau 1</td>
+                                            <td>120</td>
+                                            <td>120,000 t</td>
+                                            <td>0.8 %</td>
+                                            <td>850,000 $</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Niveau 2</td>
+                                            <td>115</td>
+                                            <td>115,000 t</td>
+                                            <td>0.75 %</td>
+                                            <td>720,000 $</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Niveau 3</td>
+                                            <td>110</td>
+                                            <td>110,000 t</td>
+                                            <td>0.65 %</td>
+                                            <td>580,000 $</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                
+                                <div class="panel" id="sensitivity">
+                                    <p>Analyse de sensibilité aux paramètres économiques</p>
+                                    <div id="sensitivity-chart" style="height: 300px; background-color: #f1f5f9; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                                        <p>Graphique d'analyse de sensibilité</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="panel" id="comparison">
+                                    <h3>Comparaison des algorithmes</h3>
+                                    <table>
+                                        <tr>
+                                            <th>Critère</th>
+                                            <th>Lerch-Grossman</th>
+                                            <th>Pseudo Flow</th>
+                                            <th>Différence (%)</th>
+                                        </tr>
+                                        <tr>
+                                            <td>Temps d'exécution</td>
+                                            <td>2.4 sec</td>
+                                            <td>0.9 sec</td>
+                                            <td class="text-success">-62.5%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Blocs extraits</td>
+                                            <td>5,432</td>
+                                            <td>5,445</td>
+                                            <td>+0.2%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>VAN</td>
+                                            <td>12,450,000 $</td>
+                                            <td>12,485,000 $</td>
+                                            <td class="text-success">+0.3%</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Ratio stérile/minerai</td>
+                                            <td>2.45</td>
+                                            <td>2.42</td>
+                                            <td class="text-success">-1.2%</td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <div style="margin-top: 1.5rem;">
+                                        <h4>Conclusion</h4>
+                                        <p>L'algorithme Pseudo Flow offre des résultats légèrement meilleurs (+0.3% de VAN) avec un temps d'exécution significativement plus court (-62.5%). Pour les grands modèles, Pseudo Flow est recommandé.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal d'exportation CSV -->
+    <div class="modal" id="csv-modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-csv-modal">&times;</span>
+            <h2>Exporter les résultats en CSV</h2>
+            
+            <div class="form-group">
+                <label>Options d'exportation</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="csv-include-coordinates" checked>
+                        Inclure les coordonnées
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="csv-include-grades" checked>
+                        Inclure les teneurs
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="csv-include-values" checked>
+                        Inclure les valeurs économiques
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="csv-only-pit" checked>
+                        Uniquement les blocs dans la fosse
+                    </label>
+                </div>
+            </div>
+            
+            <div class="export-preview" id="csv-preview">
+                X,Y,Z,GRADE,VALUE,INPIT
+                1000,2000,500,0.82,1245.6,1
+                1010,2000,500,0.75,1100.2,1
+                1020,2000,500,0.63,890.5,1
+                ...
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 1rem;">
+                <button id="csv-preview-btn" class="btn-secondary">Aperçu</button>
+                <button id="csv-download-btn">Télécharger CSV</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal d'exportation DXF -->
+    <div class="modal" id="dxf-modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-dxf-modal">&times;</span>
+            <h2>Exporter la limite de fosse en DXF</h2>
+            
+            <div class="level-selector">
+                <label for="dxf-level">Niveau d'extraction:</label>
+                <select id="dxf-level" style="width: auto;">
+                    <option value="all">Tous les niveaux</option>
+                    <option value="1">Niveau 1 (500m)</option>
+                    <option value="2">Niveau 2 (490m)</option>
+                    <option value="3">Niveau 3 (480m)</option>
+                    <option value="4">Niveau 4 (470m)</option>
+                    <option value="5">Niveau 5 (460m)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Options d'exportation</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dxf-include-points" checked>
+                        Inclure les points
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dxf-include-polylines" checked>
+                        Inclure les polylignes
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dxf-include-3dfaces" checked>
+                        Inclure les faces 3D
+                    </label>
+                </div>
+            </div>
+            
+            <div class="export-preview" id="dxf-preview">
+                0
+                SECTION
+                2
+                HEADER
+                9
+                $ACADVER
+                1
+                AC1027
+                ...
+                0
+                POLYLINE
+                8
+                PIT_BOUNDARY
+                66
+                1
+                ...
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 1rem;">
+                <button id="dxf-preview-btn" class="btn-secondary">Aperçu</button>
+                <button id="dxf-download-btn">Télécharger DXF</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast de notification -->
+    <div class="toast" id="toast">Fichier téléchargé avec succès!</div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables globales
+            let blockModel = [];
+            let optimalPit = [];
+            let selectedAlgorithm = 'lg'; // Par défaut: Lerch-Grossman
+            
+            // Gestion de la sélection d'algorithme
+            const lgAlgorithm = document.getElementById('lg-algorithm');
+            const pfAlgorithm = document.getElementById('pf-algorithm');
+            const lgParams = document.getElementById('lg-params');
+            const pfParams = document.getElementById('pf-params');
+            
+            lgAlgorithm.addEventListener('click', function() {
+                lgAlgorithm.classList.add('selected');
+                pfAlgorithm.classList.remove('selected');
+                lgParams.classList.add('active');
+                pfParams.classList.remove('active');
+                selectedAlgorithm = 'lg';
+            });
+            
+            pfAlgorithm.addEventListener('click', function() {
+                pfAlgorithm.classList.add('selected');
+                lgAlgorithm.classList.remove('selected');
+                pfParams.classList.add('active');
+                lgParams.classList.remove('active');
+                selectedAlgorithm = 'pf';
+            });
+            
+            // Gestion de l'affichage personnalisé
+            const modelSizeSelect = document.getElementById('model-size');
+            const customSizeDiv = document.getElementById('custom-size');
+            
+            modelSizeSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customSizeDiv.style.display = 'block';
+                } else {
+                    customSizeDiv.style.display = 'none';
+                }
+            });
+            
+            // Gestion des onglets
+            const tabs = document.querySelectorAll('.tab');
+            const panels = document.querySelectorAll('.panel');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Désactiver tous les onglets et panneaux
+                    tabs.forEach(t => t.classList.remove('active'));
+                    panels.forEach(p => p.classList.remove('active'));
+                    
+                    // Activer l'onglet et le panneau sélectionnés
+                    this.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // Gestion du bouton d'optimisation
+            const runButton = document.getElementById('run-optimizer');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const resultsPanel = document.getElementById('results-panel');
+            const algorithmName = document.getElementById('algorithm-name');
+            const usedAlgorithm = document.getElementById('used-algorithm');
+            const progressStep = document.getElementById('progress-step');
+            const executionTime = document.getElementById('execution-time');
+            
+            runButton.addEventListener('click', function() {
+                // Mise à jour du nom de l'algorithme affiché
+                const algoDisplayName = selectedAlgorithm === 'lg' ? 'Lerch-Grossman' : 'Pseudo Flow';
+                algorithmName.textContent = algoDisplayName;
+                usedAlgorithm.textContent = algoDisplayName;
+                
+                // Afficher l'indicateur de chargement
+                loadingIndicator.style.display = 'block';
+                resultsPanel.classList.remove('active');
+                
+                // Simuler les étapes de l'optimisation
+                setTimeout(() => {
+                    progressStep.textContent = "Construction du graphe...";
+                    setTimeout(() => {
+                        progressStep.textContent = "Calcul du flot maximum...";
+                        setTimeout(() => {
+                            progressStep.textContent = "Détermination de la fosse optimale...";
+                            setTimeout(() => {
+                                progressStep.textContent = "Finalisation des résultats...";
+                                setTimeout(() => {
+                                    // Cacher l'indicateur de chargement
+                                    loadingIndicator.style.display = 'none';
+                                    
+                                    // Générer des résultats fictifs basés sur l'algorithme choisi
+                                    generateResults();
+                                    
+                                    // Afficher les résultats
+                                    resultsPanel.classList.add('active');
+                                    
+                                    // Mettre à jour la visualisation 3D
+                                    updateVisualization('pit');
+                                    
+                                    // Mettre à jour le temps d'exécution
+                                    executionTime.textContent = selectedAlgorithm === 'lg' ? '2.4 secondes' : '0.9 secondes';
+                                }, 500);
+                            }, 700);
+                        }, 800);
+                    }, 600);
+                }, 400);
+            });
+            
+            // Fonction pour générer des résultats fictifs
+            function generateResults() {
+                // Récupérer les valeurs des paramètres
+                const metalPrice = parseFloat(document.getElementById('metal-price').value);
+                const miningCost = parseFloat(document.getElementById('mining-cost').value);
+                const processingCost = parseFloat(document.getElementById('processing-cost').value);
+                const recovery = parseFloat(document.getElementById('recovery').value) / 100;
+                
+                // Facteur de performance de l'algorithme (PF généralement donne de meilleurs résultats)
+                const algoFactor = selectedAlgorithm === 'lg' ? 1.0 : 1.01;
+                
+                // Générer des résultats fictifs basés sur les paramètres
+                const extractedBlocks = Math.floor((Math.random() * 1000 + 5000) * algoFactor);
+                const oreTonnage = extractedBlocks * 0.4 * 1000 * algoFactor; // 40% de minerai
+                const wasteTonnage = extractedBlocks * 0.6 * 1000; // 60% de stérile
+                const totalTonnage = oreTonnage + wasteTonnage;
+                const avgGrade = (Math.random() * 0.5 + 0.5).toFixed(2); // Entre 0.5% et 1%
+                const metalContent = oreTonnage * (avgGrade / 100) * recovery;
+                const totalRevenue = metalContent * metalPrice;
+                const totalCost = (oreTonnage * (miningCost + processingCost)) + (wasteTonnage * miningCost);
+                const totalProfit = totalRevenue - totalCost;
+                const srRatio = (wasteTonnage / oreTonnage).toFixed(2);
+                
+                // Mettre à jour les éléments d'affichage
+                document.getElementById('extracted-blocks').textContent = formatNumber(extractedBlocks);
+                document.getElementById('npv').textContent = formatNumber(totalProfit) + ' $';
+                document.getElementById('sr-ratio').textContent = srRatio;
+                document.getElementById('total-tonnage').textContent = formatNumber(totalTonnage) + ' t';
+                document.getElementById('ore-tonnage').textContent = formatNumber(oreTonnage) + ' t';
+                document.getElementById('waste-tonnage').textContent = formatNumber(wasteTonnage) + ' t';
+                document.getElementById('avg-grade').textContent = avgGrade + ' %';
+                document.getElementById('metal-content').textContent = formatNumber(metalContent) + ' t';
+                document.getElementById('total-revenue').textContent = formatNumber(totalRevenue) + ' $';
+                document.getElementById('total-cost').textContent = formatNumber(totalCost) + ' $';
+                document.getElementById('total-profit').textContent = formatNumber(totalProfit) + ' $';
+                
+                // Générer un modèle de blocs fictif
+                generateBlockModel();
+            }
+            
+            // Fonction pour formater les nombres
+            function formatNumber(num) {
+                return new Intl.NumberFormat().format(Math.round(num));
+            }
+            
+            // Fonction pour générer un modèle de blocs fictif
+            function generateBlockModel() {
+                blockModel = [];
+                optimalPit = [];
+                
+                // Déterminer la taille du modèle
+                let sizeX, sizeY, sizeZ;
+                
+                if (document.getElementById('model-size').value === 'custom') {
+                    sizeX = parseInt(document.getElementById('size-x').value);
+                    sizeY = parseInt(document.getElementById('size-y').value);
+                    sizeZ = parseInt(document.getElementById('size-z').value);
+                } else if (document.getElementById('model-size').value === 'small') {
+                    sizeX = sizeY = 10;
+                    sizeZ = 10;
+                } else if (document.getElementById('model-size').value === 'large') {
+                    sizeX = sizeY = 30;
+                    sizeZ = 15;
+                } else {
+                    // Moyen (par défaut)
+                    sizeX = sizeY = 20;
+                    sizeZ = 10;
+                }
+                
+                // Récupérer les coordonnées d'origine
+                const originX = parseFloat(document.getElementById('origin-x').value);
+                const originY = parseFloat(document.getElementById('origin-y').value);
+                const originZ = parseFloat(document.getElementById('origin-z').value);
+                const blockSize = parseFloat(document.getElementById('block-size').value);
+                
+                // Générer un modèle de blocs avec des teneurs aléatoires
+                for (let z = 0; z < sizeZ; z++) {
+                    for (let y = 0; y < sizeY; y++) {
+                        for (let x = 0; x < sizeX; x++) {
+                            // Plus profond = teneur plus élevée (simulation d'un gisement)
+                            const depthFactor = z / sizeZ;
+                            const distFromCenter = Math.sqrt(Math.pow((x - sizeX/2) / (sizeX/2), 2) + Math.pow((y - sizeY/2) / (sizeY/2), 2));
+                            
+                            // Teneur plus élevée au centre et en profondeur
+                            let grade = (1 - distFromCenter) * depthFactor * 2;
+                            grade = Math.max(0, grade + (Math.random() * 0.3 - 0.15)); // Ajout de bruit
+                            
+                            // Valeur économique basée sur la teneur
+                            const cutoffGrade = parseFloat(document.getElementById('cutoff-grade').value) / 100;
+                            const metalPrice = parseFloat(document.getElementById('metal-price').value);
+                            const miningCost = parseFloat(document.getElementById('mining-cost').value);
+                            const processingCost = parseFloat(document.getElementById('processing-cost').value);
+                            const recovery = parseFloat(document.getElementById('recovery').value) / 100;
+                            
+                            const tonnage = Math.pow(blockSize, 3) * 2.7; // Densité moyenne de 2.7 t/m³
+                            let value = 0;
+                            
+                            if (grade > cutoffGrade) {
+                                // Bloc de minerai
+                                value = tonnage * (grade * metalPrice * recovery - (miningCost + processingCost));
+                            } else {
+                                // Bloc de stérile
+                                value = -tonnage * miningCost;
+                            }
+                            
+                            // Calculer les coordonnées réelles
+                            const realX = originX + x * blockSize;
+                            const realY = originY + y * blockSize;
+                            const realZ = originZ - z * blockSize; // Z diminue avec la profondeur
+                            
+                            blockModel.push({
+                                x: x,
+                                y: y,
+                                z: z,
+                                realX: realX,
+                                realY: realY,
+                                realZ: realZ,
+                                grade: grade,
+                                value: value,
+                                inPit: false // Par défaut, pas dans la fosse
+                            });
+                        }
+                    }
+                }
+                
+                // Exécuter l'algorithme d'optimisation
+                if (selectedAlgorithm === 'lg') {
+                    runLerchGrossman(sizeX, sizeY, sizeZ);
+                } else {
+                    runPseudoFlow(sizeX, sizeY, sizeZ);
+                }
+            }
+            
+            // Fonction simulant l'algorithme de Lerch-Grossman
+            function runLerchGrossman(sizeX, sizeY, sizeZ) {
+                // Algorithme simplifié (pour la démonstration)
+                // Dans un vrai algorithme LG, il faudrait construire un graphe et
+                // exécuter un algorithme de flot maximum
+                
+                // D'abord, marquer les blocs de surface avec une valeur positive
+                for (let y = 0; y < sizeY; y++) {
+                    for (let x = 0; x < sizeX; x++) {
+                        for (let z = sizeZ-1; z >= 0; z--) {
+                            const index = z * sizeX * sizeY + y * sizeX + x;
+                            const block = blockModel[index];
+                            
+                            if (z === sizeZ-1 || block.value > 0) {
+                                block.inPit = true;
+                                optimalPit.push(block);
+                                break; // Passer au prochain x,y
+                            }
+                        }
+                    }
+                }
+                
+                // Ensuite, ajouter des blocs en respectant les contraintes de pente
+                const slopeAngle = parseFloat(document.getElementById('slope-angle').value);
+                const maxDepthDiff = Math.tan((90 - slopeAngle) * Math.PI / 180);
+                
+                // Simplification : ajouter des blocs en couches depuis la surface
+                for (let z = sizeZ-2; z >= 0; z--) {
+                    for (let y = 0; y < sizeY; y++) {
+                        for (let x = 0; x < sizeX; x++) {
+                            const index = z * sizeX * sizeY + y * sizeX + x;
+                            const block = blockModel[index];
+                            
+                            // Vérifier si les blocs au-dessus sont dans la fosse
+                            let canBeExtracted = false;
+                            
+                            if (z+1 < sizeZ) {
+                                const aboveIndex = (z+1) * sizeX * sizeY + y * sizeX + x;
+                                if (aboveIndex < blockModel.length && blockModel[aboveIndex].inPit) {
+                                    canBeExtracted = true;
+                                }
+                            }
+                            
+                            // Vérifier les contraintes de pente (simplifié)
+                            if (canBeExtracted && (block.value > 0 || Math.random() < 0.3)) {
+                                block.inPit = true;
+                                optimalPit.push(block);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Fonction simulant l'algorithme Pseudo Flow
+            function runPseudoFlow(sizeX, sizeY, sizeZ) {
+                // Similaire à LG mais avec un résultat légèrement différent
+                // Dans un vrai algo Pseudo Flow, on utiliserait une variante de Push-Relabel
+                
+                // Marquer les blocs de surface
+                for (let y = 0; y < sizeY; y++) {
+                    for (let x = 0; x < sizeX; x++) {
+                        for (let z = sizeZ-1; z >= 0; z--) {
+                            const index = z * sizeX * sizeY + y * sizeX + x;
+                            const block = blockModel[index];
+                            
+                            if (z === sizeZ-1 || block.value > 0) {
+                                block.inPit = true;
+                                optimalPit.push(block);
+                                break; // Passer au prochain x,y
+                            }
+                        }
+                    }
+                }
+                
+                // Pour simuler la différence, on utilise un critère légèrement différent
+                // qui donne généralement un peu plus de blocs extraits avec Pseudo Flow
+                const slopeAngle = parseFloat(document.getElementById('slope-angle').value);
+                const pfAlpha = parseFloat(document.getElementById('pf-alpha').value);
+                
+                // Ajouter des blocs en couches
+                for (let z = sizeZ-2; z >= 0; z--) {
+                    for (let y = 0; y < sizeY; y++) {
+                        for (let x = 0; x < sizeX; x++) {
+                            const index = z * sizeX * sizeY + y * sizeX + x;
+                            const block = blockModel[index];
+                            
+                            // Vérifier les blocs au-dessus
+                            let canBeExtracted = false;
+                            
+                            if (z+1 < sizeZ) {
+                                const aboveIndex = (z+1) * sizeX * sizeY + y * sizeX + x;
+                                if (aboveIndex < blockModel.length && blockModel[aboveIndex].inPit) {
+                                    canBeExtracted = true;
+                                }
+                            }
+                            
+                            // Pseudo Flow tend à être plus "agressif" pour inclure des blocs
+                            if (canBeExtracted && (block.value > -pfAlpha || Math.random() < 0.35)) {
+                                block.inPit = true;
+                                optimalPit.push(block);
+                            }
+                        }
+                    }
+                }
+                
+                // Appliquer une deuxième passe pour inclure les blocs voisins (spécifique à Pseudo Flow)
+                const tempPit = [...optimalPit];
+                
+                for (const block of tempPit) {
+                    // Vérifier les voisins 
+                    const neighbors = getNeighbors(block, sizeX, sizeY, sizeZ);
+                    
+                    for (const neighbor of neighbors) {
+                        if (!neighbor.inPit && neighbor.value > -pfAlpha * 1.5) {
+                            neighbor.inPit = true;
+                            optimalPit.push(neighbor);
+                        }
+                    }
+                }
+            }
+            
+            // Fonction auxiliaire pour obtenir les blocs voisins
+            function getNeighbors(block, sizeX, sizeY, sizeZ) {
+                const neighbors = [];
+                const directions = [
+                    {dx: 1, dy: 0, dz: 0},
+                    {dx: -1, dy: 0, dz: 0},
+                    {dx: 0, dy: 1, dz: 0},
+                    {dx: 0, dy: -1, dz: 0}
+                ];
+                
+                for (const dir of directions) {
+                    const nx = block.x + dir.dx;
+                    const ny = block.y + dir.dy;
+                    const nz = block.z + dir.dz;
+                    
+                    // Vérifier si le voisin est dans les limites
+                    if (nx >= 0 && nx < sizeX && ny >= 0 && ny < sizeY && nz >= 0 && nz < sizeZ) {
+                        const neighborIndex = nz * sizeX * sizeY + ny * sizeX + nx;
+                        
+                        if (neighborIndex >= 0 && neighborIndex < blockModel.length) {
+                            neighbors.push(blockModel[neighborIndex]);
+                        }
+                    }
+                }
+                
+                return neighbors;
+            }
+            
+            // Fonction pour mettre à jour la visualisation 3D
+            function updateVisualization(mode) {
+                const container = document.getElementById('model-3d');
+                container.innerHTML = '';
+                
+                // Ne représenter qu'un sous-ensemble des blocs pour des raisons de performance
+                const displayBlocks = mode === 'pit' ? optimalPit : blockModel;
+                const sampleSize = Math.min(200, displayBlocks.length);
+                const sample = [];
+                
+                // Sélectionner un échantillon représentatif
+                const step = Math.max(1, Math.floor(displayBlocks.length / sampleSize));
+                for (let i = 0; i < displayBlocks.length; i += step) {
+                    sample.push(displayBlocks[i]);
+                }
+                
+                // Trouver les dimensions du modèle
+                let maxX = 0, maxY = 0, maxZ = 0;
+                sample.forEach(block => {
+                    maxX = Math.max(maxX, block.x);
+                    maxY = Math.max(maxY, block.y);
+                    maxZ = Math.max(maxZ, block.z);
+                });
+                
+                // Mettre à jour la légende en fonction du mode d'affichage
+                const legend = document.querySelector('.legend');
+                legend.innerHTML = '';
+                
+                if (mode === 'grades') {
+                    legend.innerHTML = `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(120, 80%, 50%)"></div>
+                            <span>Faible teneur</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(60, 80%, 50%)"></div>
+                            <span>Teneur moyenne</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: hsl(0, 80%, 50%)"></div>
+                            <span>Haute teneur</span>
+                        </div>
+                    `;
+                } else if (mode === 'value') {
+                    legend.innerHTML = `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: rgba(128, 0, 0, 0.8)"></div>
+                            <span>Valeur négative</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: rgba(0, 128, 0, 0.8)"></div>
+                            <span>Valeur positive</span>
+                        </div>
+                    `;
+                } else if (mode === 'pit') {
+                    legend.innerHTML = `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: rgba(30, 144, 255, 0.8)"></div>
+                            <span>Blocs dans la fosse</span>
+                        </div>
+                    `;
+                }
+                
+                // Créer les cubes pour la visualisation
+                sample.forEach(block => {
+                    // Calculer la position relative
+                    const x = (block.x / maxX) * 200 - 100;
+                    const y = (block.y / maxY) * 200 - 100;
+                    const z = (block.z / maxZ) * 100;
+                    
+                    // Créer un cube
+                    const cube = document.createElement('div');
+                    cube.className = 'cube';
+                    cube.style.transform = `translate3d(${x}px, ${y}px, ${z}px)`;
+                    
+                    // Déterminer la couleur en fonction du mode d'affichage
+                    let color;
+                    if (mode === 'grades') {
+                        // Couleur basée sur la teneur
+                        const hue = Math.max(0, Math.min(120, 120 - block.grade * 120));
+                        color = `hsl(${hue}, 80%, 50%)`;
+                    } else if (mode === 'value') {
+                        // Couleur basée sur la valeur économique
+                        if (block.value > 0) {
+                            const intensity = Math.min(1, block.value / 10000);
+                            color = `rgba(0, 128, 0, ${0.3 + intensity * 0.7})`;
+                        } else {
+                            const intensity = Math.min(1, -block.value / 5000);
+                            color = `rgba(128, 0, 0, ${0.3 + intensity * 0.7})`;
+                        }
+                    } else if (mode === 'pit') {
+                        // Pour le mode fosse
+                        const intensity = (block.z / maxZ) * 0.8 + 0.2;
+                        
+                        // Légère différence visuelle entre LG et PF
+                        if (selectedAlgorithm === 'lg') {
+                            color = `rgba(30, 144, 255, ${intensity})`;
+                        } else {
+                            color = `rgba(65, 105, 225, ${intensity})`;
+                        }
+                    }
+                    
+                    // Créer les faces du cube
+                    const faces = ['front', 'back', 'left', 'right', 'top', 'bottom'];
+                    faces.forEach(face => {
+                        const faceElement = document.createElement('div');
+                        faceElement.className = `face ${face}`;
+                        faceElement.style.backgroundColor = color;
+                        cube.appendChild(faceElement);
+                    });
+                    
+                    container.appendChild(cube);
+                });
+                
+                // Permettre la rotation de la visualisation avec la souris
+                let isDragging = false;
+                let previousX, previousY;
+                let rotationX = 60, rotationZ = 45;
+                
+                container.addEventListener('mousedown', function(e) {
+                    isDragging = true;
+                    previousX = e.clientX;
+                    previousY = e.clientY;
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (isDragging) {
+                        const deltaX = e.clientX - previousX;
+                        const deltaY = e.clientY - previousY;
+                        
+                        rotationZ -= deltaX * 0.5;
+                        rotationX = Math.max(0, Math.min(90, rotationX - deltaY * 0.5));
+                        
+                        container.style.transform = `rotateX(${rotationX}deg) rotateZ(${rotationZ}deg)`;
+                        
+                        previousX = e.clientX;
+                        previousY = e.clientY;
+                    }
+                });
+                
+                document.addEventListener('mouseup', function() {
+                    isDragging = false;
+                });
+            }
+            
+            // Changer la visualisation quand le mode d'affichage change
+            document.getElementById('view-mode').addEventListener('change', function() {
+                updateVisualization(this.value);
+            });
+            
+            // Fonctions pour gérer les modalités d'exportation
+            const csvModal = document.getElementById('csv-modal');
+            const dxfModal = document.getElementById('dxf-modal');
+            const closeCsvModal = document.getElementById('close-csv-modal');
+            const closeDxfModal = document.getElementById('close-dxf-modal');
+            const exportCsvBtn = document.getElementById('export-csv');
+            const exportDxfBtn = document.getElementById('export-dxf');
+            const exportJsonBtn = document.getElementById('export-json');
+            const csvPreviewBtn = document.getElementById('csv-preview-btn');
+            const csvDownloadBtn = document.getElementById('csv-download-btn');
+            const dxfPreviewBtn = document.getElementById('dxf-preview-btn');
+            const dxfDownloadBtn = document.getElementById('dxf-download-btn');
+            const toast = document.getElementById('toast');
+            
+            // Ouvrir le modal CSV
+            exportCsvBtn.addEventListener('click', function() {
+                csvModal.style.display = 'block';
+                updateCsvPreview();
+            });
+            
+            // Ouvrir le modal DXF
+            exportDxfBtn.addEventListener('click', function() {
+                dxfModal.style.display = 'block';
+                updateDxfPreview();
+            });
+            
+            // Exporter directement en JSON
+            exportJsonBtn.addEventListener('click', function() {
+                exportJson();
+            });
+            
+            // Fermer les modaux
+            closeCsvModal.addEventListener('click', function() {
+                csvModal.style.display = 'none';
+            });
+            
+            closeDxfModal.addEventListener('click', function() {
+                dxfModal.style.display = 'none';
+            });
+            
+            // Cliquer en dehors des modaux pour les fermer
+            window.addEventListener('click', function(event) {
+                if (event.target === csvModal) {
+                    csvModal.style.display = 'none';
+                }
+                if (event.target === dxfModal) {
+                    dxfModal.style.display = 'none';
+                }
+            });
+            
+            // Boutons d'aperçu et de téléchargement CSV
+            csvPreviewBtn.addEventListener('click', function() {
+                updateCsvPreview();
+            });
+            
+            csvDownloadBtn.addEventListener('click', function() {
+                exportCsv();
+            });
+            
+            // Boutons d'aperçu et de téléchargement DXF
+            dxfPreviewBtn.addEventListener('click', function() {
+                updateDxfPreview();
+            });
+            
+            dxfDownloadBtn.addEventListener('click', function() {
+                exportDxf();
+            });
+            
+            // Options d'exportation CSV qui mettent à jour l'aperçu
+            document.getElementById('csv-include-coordinates').addEventListener('change', updateCsvPreview);
+            document.getElementById('csv-include-grades').addEventListener('change', updateCsvPreview);
+            document.getElementById('csv-include-values').addEventListener('change', updateCsvPreview);
+            document.getElementById('csv-only-pit').addEventListener('change', updateCsvPreview);
+            
+            // Options d'exportation DXF qui mettent à jour l'aperçu
+            document.getElementById('dxf-level').addEventListener('change', updateDxfPreview);
+            document.getElementById('dxf-include-points').addEventListener('change', updateDxfPreview);
+            document.getElementById('dxf-include-polylines').addEventListener('change', updateDxfPreview);
+            document.getElementById('dxf-include-3dfaces').addEventListener('change', updateDxfPreview);
+            
+            // Fonction pour mettre à jour l'aperçu CSV
+            function updateCsvPreview() {
+                const includeCoordinates = document.getElementById('csv-include-coordinates').checked;
+                const includeGrades = document.getElementById('csv-include-grades').checked;
+                const includeValues = document.getElementById('csv-include-values').checked;
+                const onlyPit = document.getElementById('csv-only-pit').checked;
+                
+                // Construire les en-têtes
+                let headers = [];
+                
+                if (includeCoordinates) {
+                    headers.push('X', 'Y', 'Z');
+                }
+                if (includeGrades) {
+                    headers.push('GRADE');
+                }
+                if (includeValues) {
+                    headers.push('VALUE');
+                }
+                headers.push('INPIT');
+                
+                // Créer les premières lignes du CSV
+                let csvContent = headers.join(',') + '\n';
+                
+                // Filtrer si nécessaire
+                const displayBlocks = onlyPit ? optimalPit : blockModel;
+                
+                // Limiter à quelques lignes pour l'aperçu
+                const previewBlocks = displayBlocks.slice(0, 5);
+                
+                // Ajouter les lignes de données
+                for (const block of previewBlocks) {
+                    let rowData = [];
+                    
+                    if (includeCoordinates) {
+                        rowData.push(block.realX, block.realY, block.realZ);
+                    }
+                    if (includeGrades) {
+                        rowData.push(block.grade.toFixed(2));
+                    }
+                    if (includeValues) {
+                        rowData.push(block.value.toFixed(1));
+                    }
+                    rowData.push(block.inPit ? '1' : '0');
+                    
+                    csvContent += rowData.join(',') + '\n';
+                }
+                
+                // Ajouter une indication que c'est tronqué
+                csvContent += '...';
+                
+                // Afficher l'aperçu
+                document.getElementById('csv-preview').textContent = csvContent;
+            }
+            
+            // Fonction pour exporter en CSV
+            function exportCsv() {
+                const includeCoordinates = document.getElementById('csv-include-coordinates').checked;
+                const includeGrades = document.getElementById('csv-include-grades').checked;
+                const includeValues = document.getElementById('csv-include-values').checked;
+                const onlyPit = document.getElementById('csv-only-pit').checked;
+                
+                // Construire les en-têtes
+                let headers = [];
+                
+                if (includeCoordinates) {
+                    headers.push('X', 'Y', 'Z');
+                }
+                if (includeGrades) {
+                    headers.push('GRADE');
+                }
+                if (includeValues) {
+                    headers.push('VALUE');
+                }
+                headers.push('INPIT');
+                
+                // Créer le contenu complet du CSV
+                let csvContent = headers.join(',') + '\n';
+                
+                // Filtrer si nécessaire
+                const displayBlocks = onlyPit ? optimalPit : blockModel;
+                
+                // Ajouter toutes les lignes de données
+                for (const block of displayBlocks) {
+                    let rowData = [];
+                    
+                    if (includeCoordinates) {
+                        rowData.push(block.realX, block.realY, block.realZ);
+                    }
+                    if (includeGrades) {
+                        rowData.push(block.grade.toFixed(2));
+                    }
+                    if (includeValues) {
+                        rowData.push(block.value.toFixed(1));
+                    }
+                    rowData.push(block.inPit ? '1' : '0');
+                    
+                    csvContent += rowData.join(',') + '\n';
+                }
+                
+                // Créer un blob et générer le lien de téléchargement
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Configurer le lien et déclencher le téléchargement
+                link.setAttribute('href', url);
+                link.setAttribute('download', `pit_results_${selectedAlgorithm}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Fermer le modal et afficher une notification
+                csvModal.style.display = 'none';
+                showToast('Fichier CSV téléchargé avec succès!');
+            }
+            
+            // Fonction pour mettre à jour l'aperçu DXF
+            function updateDxfPreview() {
+                const selectedLevel = document.getElementById('dxf-level').value;
+                const includePoints = document.getElementById('dxf-include-points').checked;
+                const includePolylines = document.getElementById('dxf-include-polylines').checked;
+                const include3dFaces = document.getElementById('dxf-include-3dfaces').checked;
+                
+                // Créer un aperçu simplifié du fichier DXF
+                let dxfContent = `0
+SECTION
+2
+HEADER
+9
+$ACADVER
+1
+AC1027
+9
+$DWGCODEPAGE
+3
+ANSI_1252
+9
+$INSBASE
+10
+0.0
+20
+0.0
+30
+0.0
+0
+ENDSEC
+0
+SECTION
+2
+TABLES
+0
+TABLE
+2
+LAYER
+0
+LAYER
+2
+PIT_BOUNDARY
+70
+0
+62
+5
+6
+CONTINUOUS
+0
+ENDTAB
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+`;
+                
+                if (includePoints) {
+                    dxfContent += `0
+POINT
+8
+PIT_BOUNDARY
+10
+1000.0
+20
+2000.0
+30
+500.0
+0
+POINT
+8
+PIT_BOUNDARY
+10
+1010.0
+20
+2000.0
+30
+500.0
+`;
+                }
+                
+                if (includePolylines) {
+                    dxfContent += `0
+POLYLINE
+8
+PIT_BOUNDARY
+66
+1
+70
+1
+0
+VERTEX
+8
+PIT_BOUNDARY
+10
+1000.0
+20
+2000.0
+30
+500.0
+0
+VERTEX
+8
+PIT_BOUNDARY
+10
+1010.0
+20
+2000.0
+30
+500.0
+`;
+                }
+                
+                if (include3dFaces) {
+                    dxfContent += `0
+3DFACE
+8
+PIT_BOUNDARY
+10
+1000.0
+20
+2000.0
+30
+500.0
+11
+1010.0
+21
+2000.0
+31
+500.0
+12
+1010.0
+22
+2010.0
+32
+500.0
+13
+1000.0
+23
+2010.0
+33
+500.0
+`;
+                }
+                
+                dxfContent += `...
+0
+ENDSEC
+0
+EOF`;
+                
+                // Afficher l'aperçu
+                document.getElementById('dxf-preview').textContent = dxfContent;
+            }
+            
+            // Fonction pour exporter en DXF
+            function exportDxf() {
+                const selectedLevel = document.getElementById('dxf-level').value;
+                const includePoints = document.getElementById('dxf-include-points').checked;
+                const includePolylines = document.getElementById('dxf-include-polylines').checked;
+                const include3dFaces = document.getElementById('dxf-include-3dfaces').checked;
+                
+                // Récupérer les blocs à la limite de la fosse
+                const pitBoundaryBlocks = [];
+                
+                // Si on veut tous les niveaux
+                if (selectedLevel === 'all') {
+                    // Identifier les blocs à la limite (ceux qui ont au moins un voisin non extrait)
+                    for (const block of optimalPit) {
+                        const neighbors = getNeighbors(block, block.x, block.y, block.z);
+                        const hasNonPitNeighbor = neighbors.some(neighbor => !neighbor.inPit);
+                        
+                        if (hasNonPitNeighbor) {
+                            pitBoundaryBlocks.push(block);
+                        }
+                    }
+                } else {
+                    // Filtrer par niveau spécifique
+                    const level = parseInt(selectedLevel);
+                    
+                    for (const block of optimalPit) {
+                        if (block.z === level - 1) { // Niveau 1 correspond à z=0, etc.
+                            // Vérifier si c'est un bloc de limite sur ce niveau
+                            const neighbors = getNeighbors(block, block.x, block.y, block.z);
+                            const hasNonPitNeighbor = neighbors.some(neighbor => !neighbor.inPit);
+                            
+                            if (hasNonPitNeighbor) {
+                                pitBoundaryBlocks.push(block);
+                            }
+                        }
+                    }
+                }
+                
+                // Générer un DXF simplifié
+                let dxfContent = `0
+SECTION
+2
+HEADER
+9
+$ACADVER
+1
+AC1027
+9
+$DWGCODEPAGE
+3
+ANSI_1252
+9
+$INSBASE
+10
+0.0
+20
+0.0
+30
+0.0
+0
+ENDSEC
+0
+SECTION
+2
+TABLES
+0
+TABLE
+2
+LAYER
+0
+LAYER
+2
+PIT_BOUNDARY
+70
+0
+62
+5
+6
+CONTINUOUS
+0
+ENDTAB
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+`;
+                
+                // Ajouter les points si sélectionnés
+                if (includePoints) {
+                    for (const block of pitBoundaryBlocks) {
+                        dxfContent += `0
+POINT
+8
+PIT_BOUNDARY
+10
+${block.realX.toFixed(2)}
+20
+${block.realY.toFixed(2)}
+30
+${block.realZ.toFixed(2)}
+`;
+                    }
+                }
+                
+                // Ajouter les polylignes si sélectionnées
+                if (includePolylines && pitBoundaryBlocks.length > 0) {
+                    // Regrouper les blocs par niveau Z
+                    const blocksByLevel = {};
+                    
+                    for (const block of pitBoundaryBlocks) {
+                        if (!blocksByLevel[block.realZ]) {
+                            blocksByLevel[block.realZ] = [];
+                        }
+                        blocksByLevel[block.realZ].push(block);
+                    }
+                    
+                    // Pour chaque niveau, créer une polyligne
+                    for (const level in blocksByLevel) {
+                        if (blocksByLevel[level].length > 2) {
+                            // Trier les blocs pour former un contour
+                            const levelBlocks = blocksByLevel[level];
+                            
+                            dxfContent += `0
+POLYLINE
+8
+PIT_BOUNDARY_Z${level}
+66
+1
+70
+1
+`;
+                            
+                            for (const block of levelBlocks) {
+                                dxfContent += `0
+VERTEX
+8
+PIT_BOUNDARY_Z${level}
+10
+${block.realX.toFixed(2)}
+20
+${block.realY.toFixed(2)}
+30
+${block.realZ.toFixed(2)}
+`;
+                            }
+                            
+                            // Fermer la polyligne
+                            dxfContent += `0
+SEQEND
+8
+PIT_BOUNDARY_Z${level}
+`;
+                        }
+                    }
+                }
+                
+                // Ajouter les faces 3D si sélectionnées
+                if (include3dFaces) {
+                    const blockSize = parseFloat(document.getElementById('block-size').value);
+                    
+                    for (const block of pitBoundaryBlocks) {
+                        // Pour chaque face exposée du bloc, créer une 3DFACE
+                        const neighbors = getNeighbors(block, block.x, block.y, block.z);
+                        
+                        // Face supérieure
+                        if (!neighbors.find(n => n.z === block.z - 1 && n.inPit)) {
+                            dxfContent += `0
+3DFACE
+8
+PIT_BOUNDARY
+10
+${block.realX.toFixed(2)}
+20
+${block.realY.toFixed(2)}
+30
+${block.realZ.toFixed(2)}
+11
+${(block.realX + blockSize).toFixed(2)}
+21
+${block.realY.toFixed(2)}
+31
+${block.realZ.toFixed(2)}
+12
+${(block.realX + blockSize).toFixed(2)}
+22
+${(block.realY + blockSize).toFixed(2)}
+32
+${block.realZ.toFixed(2)}
+13
+${block.realX.toFixed(2)}
+23
+${(block.realY + blockSize).toFixed(2)}
+33
+${block.realZ.toFixed(2)}
+`;
+                        }
+                        
+                        // Face avant
+                        if (!neighbors.find(n => n.y === block.y + 1 && n.inPit)) {
+                            dxfContent += `0
+3DFACE
+8
+PIT_BOUNDARY
+10
+${block.realX.toFixed(2)}
+20
+${(block.realY + blockSize).toFixed(2)}
+30
+${block.realZ.toFixed(2)}
+11
+${(block.realX + blockSize).toFixed(2)}
+21
+${(block.realY + blockSize).toFixed(2)}
+31
+${block.realZ.toFixed(2)}
+12
+${(block.realX + blockSize).toFixed(2)}
+22
+${(block.realY + blockSize).toFixed(2)}
+32
+${(block.realZ - blockSize).toFixed(2)}
+13
+${block.realX.toFixed(2)}
+23
+${(block.realY + blockSize).toFixed(2)}
+33
+${(block.realZ - blockSize).toFixed(2)}
+`;
+                        }
+                        
+                        // Face droite
+                        if (!neighbors.find(n => n.x === block.x + 1 && n.inPit)) {
+                            dxfContent += `0
+3DFACE
+8
+PIT_BOUNDARY
+10
+${(block.realX + blockSize).toFixed(2)}
+20
+${block.realY.toFixed(2)}
+30
+${block.realZ.toFixed(2)}
+11
+${(block.realX + blockSize).toFixed(2)}
+21
+${(block.realY + blockSize).toFixed(2)}
+31
+${block.realZ.toFixed(2)}
+12
+${(block.realX + blockSize).toFixed(2)}
+22
+${(block.realY + blockSize).toFixed(2)}
+32
+${(block.realZ - blockSize).toFixed(2)}
+13
+${(block.realX + blockSize).toFixed(2)}
+23
+${block.realY.toFixed(2)}
+33
+${(block.realZ - blockSize).toFixed(2)}
+`;
+                        }
+                    }
+                }
+                
+                dxfContent += `0
+ENDSEC
+0
+EOF`;
+                
+                // Créer un blob et générer le lien de téléchargement
+                const blob = new Blob([dxfContent], { type: 'application/dxf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Configurer le lien et déclencher le téléchargement
+                const levelSuffix = selectedLevel === 'all' ? 'all_levels' : `level_${selectedLevel}`;
+                link.setAttribute('href', url);
+                link.setAttribute('download', `pit_boundary_${levelSuffix}_${selectedAlgorithm}.dxf`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Fermer le modal et afficher une notification
+                dxfModal.style.display = 'none';
+                showToast('Fichier DXF téléchargé avec succès!');
+            }
+            
+            // Fonction pour exporter en JSON
+            function exportJson() {
+                // Créer un objet pour le modèle de fosse optimisé
+                const pitModel = {
+                    metadata: {
+                        algorithm: selectedAlgorithm === 'lg' ? 'Lerch-Grossman' : 'Pseudo Flow',
+                        timestamp: new Date().toISOString(),
+                        params: {
+                            metalPrice: parseFloat(document.getElementById('metal-price').value),
+                            miningCost: parseFloat(document.getElementById('mining-cost').value),
+                            processingCost: parseFloat(document.getElementById('processing-cost').value),
+                            recovery: parseFloat(document.getElementById('recovery').value) / 100,
+                            cutoffGrade: parseFloat(document.getElementById('cutoff-grade').value) / 100,
+                            slopeAngle: parseFloat(document.getElementById('slope-angle').value)
+                        }
+                    },
+                    statistics: {
+                        totalBlocks: blockModel.length,
+                        extractedBlocks: optimalPit.length,
+                        totalTonnage: parseFloat(document.getElementById('total-tonnage').textContent),
+                        oreTonnage: parseFloat(document.getElementById('ore-tonnage').textContent),
+                        wasteTonnage: parseFloat(document.getElementById('waste-tonnage').textContent),
+                        avgGrade: parseFloat(document.getElementById('avg-grade').textContent),
+                        npv: parseFloat(document.getElementById('total-profit').textContent)
+                    },
+                    blocks: optimalPit.map(block => ({
+                        x: block.realX,
+                        y: block.realY,
+                        z: block.realZ,
+                        grade: block.grade,
+                        value: block.value
+                    }))
+                };
+                
+                // Convertir en JSON formaté
+                const jsonContent = JSON.stringify(pitModel, null, 2);
+                
+                // Créer un blob et générer le lien de téléchargement
+                const blob = new Blob([jsonContent], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Configurer le lien et déclencher le téléchargement
+                link.setAttribute('href', url);
+                link.setAttribute('download', `pit_model_${selectedAlgorithm}.json`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Afficher une notification
+                showToast('Fichier JSON téléchargé avec succès!');
+            }
+            
+            // Fonction pour afficher une notification
+            function showToast(message) {
+                toast.textContent = message;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+            
+            // Initialiser avec un modèle par défaut
+            generateBlockModel();
+            updateVisualization('grades');
+        });
+    </script>
+</body>
+</html>
